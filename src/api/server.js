@@ -8,8 +8,7 @@ import { setRandom } from 'txtgen'
 
 import { parseISO } from 'date-fns'
 
-const NUM_USERS = 3
-const POSTS_PER_USER = 3
+const SESSIONS_PER_USER = 3
 const RECENT_NOTIFICATIONS_DAYS = 7
 
 // Add an extra delay to all endpoints, so loading spinners show up.
@@ -62,31 +61,14 @@ export const db = factory({
     lastName: String,
     name: String,
     username: String,
-    posts: manyOf('post'),
+    sessions: manyOf('session'),
   },
-  post: {
+  session: {
     id: primaryKey(nanoid),
     title: String,
     date: String,
     content: String,
-    reactions: oneOf('reaction'),
-    comments: manyOf('comment'),
     user: oneOf('user'),
-  },
-  comment: {
-    id: primaryKey(String),
-    date: String,
-    text: String,
-    post: oneOf('post'),
-  },
-  reaction: {
-    id: primaryKey(nanoid),
-    thumbsUp: Number,
-    hooray: Number,
-    heart: Number,
-    rocket: Number,
-    eyes: Number,
-    post: oneOf('post'),
   },
 })
 
@@ -102,46 +84,81 @@ const createUserData = () => {
   }
 }
 
-const createPostData = (user) => {
+const createSessionData = () => {
   return {
-    title: faker.lorem.words(),
-    date: faker.date.recent(RECENT_NOTIFICATIONS_DAYS).toISOString(),
-    user,
-    content: faker.lorem.paragraphs(),
-    reactions: db.reaction.create(),
+    sessionId: 1,
+    progress: Math.floor(Math.random()*12 + 1),
+    lastWorkedOnDate: faker.date.recent(RECENT_NOTIFICATIONS_DAYS).toISOString(),
+    content: {
+      step1: {
+        instruction: 'instruction',
+        options: {
+          description: 'description',
+          choices: {
+            choice1: {
+              description: 'choice 1',
+              answer: ''
+            },
+            choice2: {
+              description: 'choice 2',
+              answer: ''
+            }
+          },
+          videoLink: ''
+        }
+      },
+      step2: {
+        instruction: 'instruction',
+        options: {
+          description: 'description',
+          choices: {
+            choice1: {
+              description: 'choice 1',
+              answer: ''
+            },
+            choice2: {
+              description: 'choice 2',
+              answer: ''
+            },
+            choice3: {
+              description: 'choice 3',
+              answer: ''
+            }
+          },
+          videoLink: ''
+        }
+      },
+    }
   }
 }
 
 // Create an initial set of users and posts
-for (let i = 0; i < NUM_USERS; i++) {
-  const author = db.user.create(createUserData())
-
-  for (let j = 0; j < POSTS_PER_USER; j++) {
-    const newPost = createPostData(author)
-    db.post.create(newPost)
+  const user = db.user.create(createUserData())
+  for (let j = 0; j < SESSIONS_PER_USER; j++) {
+    const newSession = createSessionData(user)
+    db.session.create(newSession)
   }
-}
 
-const serializePost = (post) => ({
-  ...post,
-  user: post.user.id,
+const serializeSession = (session) => ({
+  ...session,
+  user: session.user.id,
 })
 
 /* MSW REST API Handlers */
 
 export const handlers = [
-  rest.get('/fakeApi/posts', function (req, res, ctx) {
-    const posts = db.post.getAll().map(serializePost)
-    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(posts))
+  rest.get('/fakeApi/sessions', function (req, res, ctx) {
+    const sessions = db.session.getAll().map(serializeSession)
+    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(sessions))
   }),
-  rest.post('/fakeApi/posts', function (req, res, ctx) {
+  rest.post('/fakeApi/sessions', function (req, res, ctx) {
     const data = req.body
 
     if (data.content === 'error') {
       return res(
         ctx.delay(ARTIFICIAL_DELAY_MS),
         ctx.status(500),
-        ctx.json('Server error saving this post!')
+        ctx.json('Server error saving this session!')
       )
     }
 
@@ -149,74 +166,26 @@ export const handlers = [
 
     const user = db.user.findFirst({ where: { id: { equals: data.user } } })
     data.user = user
-    data.reactions = db.reaction.create()
 
-    const post = db.post.create(data)
-    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(serializePost(post)))
+    const session = db.session.create(data)
+    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(serializeSession(session)))
   }),
-  rest.get('/fakeApi/posts/:postId', function (req, res, ctx) {
-    const post = db.post.findFirst({
+  rest.get('/fakeApi/sessions/:sessionId', function (req, res, ctx) {
+    const session = db.session.findFirst({
       where: { id: { equals: req.params.postId } },
     })
-    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(serializePost(post)))
+    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(serializeSession(session)))
   }),
-  rest.patch('/fakeApi/posts/:postId', (req, res, ctx) => {
+  rest.patch('/fakeApi/sessions/:sessionId', (req, res, ctx) => {
     const { id, ...data } = req.body
-    const updatedPost = db.post.update({
-      where: { id: { equals: req.params.postId } },
+    const updatedSession = db.session.update({
+      where: { id: { equals: req.params.sessionId } },
       data,
     })
     return res(
       ctx.delay(ARTIFICIAL_DELAY_MS),
-      ctx.json(serializePost(updatedPost))
+      ctx.json(serializeSession(updatedSession))
     )
-  }),
-
-  rest.get('/fakeApi/posts/:postId/comments', (req, res, ctx) => {
-    const post = db.post.findFirst({
-      where: { id: { equals: req.params.postId } },
-    })
-    return res(
-      ctx.delay(ARTIFICIAL_DELAY_MS),
-      ctx.json({ comments: post.comments })
-    )
-  }),
-
-  rest.post('/fakeApi/posts/:postId/reactions', (req, res, ctx) => {
-    const postId = req.params.postId
-    const reaction = req.body.reaction
-    const post = db.post.findFirst({
-      where: { id: { equals: postId } },
-    })
-
-    const updatedPost = db.post.update({
-      where: { id: { equals: postId } },
-      data: {
-        reactions: {
-          ...post.reactions,
-          [reaction]: (post.reactions[reaction] += 1),
-        },
-      },
-    })
-
-    return res(
-      ctx.delay(ARTIFICIAL_DELAY_MS),
-      ctx.json(serializePost(updatedPost))
-    )
-  }),
-  rest.get('/fakeApi/notifications', (req, res, ctx) => {
-    const numNotifications = getRandomInt(1, 5)
-
-    let notifications = generateRandomNotifications(
-      undefined,
-      numNotifications,
-      db
-    )
-
-    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(notifications))
-  }),
-  rest.get('/fakeApi/users', (req, res, ctx) => {
-    return res(ctx.delay(ARTIFICIAL_DELAY_MS), ctx.json(db.user.getAll()))
   }),
 ]
 
@@ -268,21 +237,20 @@ socketServer.on('connection', (socket) => {
 /* Random Notifications Generation */
 
 const notificationTemplates = [
-  'poked you',
-  'says hi!',
-  `is glad we're friends`,
-  'sent you a gift',
+  'updated',
+  'logged in',
+  'logged out',
 ]
 
 function generateRandomNotifications(since, numNotifications, db) {
   const now = new Date()
-  let pastDate
+  let sessionDate
 
   if (since) {
-    pastDate = parseISO(since)
+    sessionDate = parseISO(since)
   } else {
-    pastDate = new Date(now.valueOf())
-    pastDate.setMinutes(pastDate.getMinutes() - 15)
+    sessionDate = new Date(now.valueOf())
+    sessionDate.setMinutes(sessionDate.getMinutes() - 15)
   }
 
   // Create N random notifications. We won't bother saving these
@@ -292,7 +260,7 @@ function generateRandomNotifications(since, numNotifications, db) {
     const template = randomFromArray(notificationTemplates)
     return {
       id: nanoid(),
-      date: faker.date.between(pastDate, now).toISOString(),
+      date: faker.date.between(sessionDate, now).toISOString(),
       message: template,
       user: user.id,
     }

@@ -1,9 +1,10 @@
 {
-  "name": "redux-essentials-example",
+  "name": "lens",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
     "@mswjs/data": "^0.8.4",
+    "@mui/icons-material": "^5.10.3",
     "@reduxjs/toolkit": "^1.6.1",
     "@testing-library/jest-dom": "^5.16.1",
     "@testing-library/react": "^12.1.2",

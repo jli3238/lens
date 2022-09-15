@@ -1,6 +1,6 @@
-# Redux Essentials Tutorial Example
+# LENS
 
-This project contains the setup and code from the "Redux Essentials" tutorial in the Redux docs ( https://redux.js.org/tutorials/essentials/part-1-overview-concepts ).
+This project contains the setup and code from the "LENS" tutorial in the Redux docs ( https://redux.js.org/tutorials/essentials/part-1-overview-concepts ).
 
 The `master` branch has a single commit that already has the initial project configuration in place. You can use this to follow along with the instructions from the tutorial.
 

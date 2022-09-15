@@ -8,6 +8,10 @@ import {
 
 import { Navbar } from './app/Navbar'
 
+import { SessionsList } from './features/sessions/SessionsList'
+import { Dashboard } from './features/sessions/Dashboard'
+import { SingleSessionPage } from './features/sessions/SingleSessionPage'
+
 function App() {
   return (
     <Router>
@@ -18,11 +22,13 @@ function App() {
             exact
             path="/"
             render={() => (
-              <section>
-                <h2>Welcome to the Redux Essentials example app!</h2>
-              </section>
+              <React.Fragment>
+                <Dashboard />
+                <SessionsList />
+              </React.Fragment>
             )}
           />
+          <Route exact path="/sessions/:sessionId" component={SingleSessionPage} />
           <Redirect to="/" />
         </Switch>
       </div>
